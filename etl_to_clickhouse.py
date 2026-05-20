@@ -71,14 +71,14 @@ def _shard_seed(base_seed: int, year: int, month: int, shard_idx: int) -> int:
 
 
 def _align_for_clickhouse(table: pa.Table) -> pa.Table:
-    """Cast/add columns so the Arrow table matches the vacinas.events schema.
+    """Cast columns so the Arrow table matches the vacinas.events schema.
 
-    Synthetic generator output differs in three places vs the CH DDL:
-      - codigo_dose_vacina:    int8       -> String
-      - numero_idade_paciente: int32      -> UInt16
-      - Unnamed: 0:            (missing)  -> UInt32 (legacy CSV-import column,
-                                            always 0 — kept so existing data
-                                            and new inserts share the schema)
+    Synthetic generator output differs in two places vs the CH DDL:
+      - codigo_dose_vacina:    int8  -> String
+      - numero_idade_paciente: int32 -> UInt16
+    The all-NULL nullable-string columns are emitted as pa.null() type and
+    must be re-typed to string for CH's Nullable(String) target.
+    LowCardinality(String) target columns are auto-cast from plain string by CH.
     """
     idx = table.schema.get_field_index("codigo_dose_vacina")
     if idx >= 0 and table.schema.field(idx).type != pa.string():
@@ -90,18 +90,7 @@ def _align_for_clickhouse(table: pa.Table) -> pa.Table:
         table = table.set_column(idx, "numero_idade_paciente",
                                  pc.cast(table.column(idx), pa.uint16()))
 
-    if "Unnamed: 0" not in table.column_names:
-        table = table.append_column(
-            "Unnamed: 0",
-            pa.array(np.zeros(table.num_rows, dtype=np.uint32)),
-        )
-
-    # Generator emits pa.null() typed arrays for the all-NULL nullable-string
-    # columns; CH expects Nullable(String) and rejects the null type. Cast them.
-    null_typed = [
-        f.name for f in table.schema
-        if pa.types.is_null(f.type)
-    ]
+    null_typed = [f.name for f in table.schema if pa.types.is_null(f.type)]
     for name in null_typed:
         idx = table.schema.get_field_index(name)
         table = table.set_column(

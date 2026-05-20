@@ -114,9 +114,7 @@ class DataTransformer:
         Returns:
             Transformed record ready for ClickHouse insertion
         """
-        transformed = {
-            "Unnamed: 0": 0,
-        }
+        transformed: Dict[str, Any] = {}
 
         # Process each field
         for field in self.REQUIRED_STRING_FIELDS:
