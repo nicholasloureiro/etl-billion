@@ -1,0 +1,22 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+*.egg-info/
+
+# Local state / logs
+ingestion_state.json
+ingestion.log
+synthetic_run.log
+synthetic_gen.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

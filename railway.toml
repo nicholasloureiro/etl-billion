@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+# One-shot ETL: don't restart after the run finishes (successful or not).
+# Manual redeploy is the explicit retry; restart-on-failure would re-insert
+# every row the first attempt managed before crashing.
+restartPolicyType = "NEVER"

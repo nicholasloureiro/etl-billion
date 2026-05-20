@@ -1,0 +1,30 @@
+.git
+.gitignore
+.mypy_cache
+__pycache__
+*.pyc
+
+# Local-only artifacts — credentials, state, large logs
+.env
+.env.*
+ingestion_state.json
+ingestion.log
+synthetic_run.log
+synthetic_gen.log
+api_resp_10.json
+
+# Helper scripts not needed in the deploy image
+ingestion.py
+api_client.py
+state_manager.py
+transformer.py
+synthetic_generator.py
+export_to_s3.py
+load_clickhouse_from_s3.py
+wipe_s3_prefix.py
+schema.sql
+
+# Docker meta
+Dockerfile
+.dockerignore
+railway.toml
