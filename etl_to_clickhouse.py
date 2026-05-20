@@ -50,7 +50,13 @@ _INSERT_RETRIES = DEFAULT_INSERT_RETRIES
 
 
 def _init_worker(distributions_dict: dict, ch_cfg: dict, insert_retries: int) -> None:
-    """Per-worker setup: cache distributions + open a fresh CH client."""
+    """Per-worker setup: cache distributions + open a fresh CH client.
+
+    connect_timeout governs the socket WRITE deadline too, so it must be
+    large enough to push a full Arrow shard payload (~150 MB / 500k rows)
+    across the network. The default 10s is fine LAN-to-LAN but fails on
+    cross-region Railway -> CH Cloud paths.
+    """
     global _DISTRIBUTIONS, _CH_CLIENT, _INSERT_RETRIES
     import clickhouse_connect
 
@@ -63,6 +69,9 @@ def _init_worker(distributions_dict: dict, ch_cfg: dict, insert_retries: int) ->
         password=ch_cfg["password"],
         database=ch_cfg["database"],
         secure=ch_cfg["secure"],
+        connect_timeout=ch_cfg["connect_timeout"],
+        send_receive_timeout=ch_cfg["send_receive_timeout"],
+        compress="lz4",
     )
 
 
@@ -224,7 +233,13 @@ def main() -> None:
         "password": cfg.clickhouse.password,
         "database": cfg.clickhouse.database,
         "secure": cfg.clickhouse.secure,
+        "connect_timeout": _env_int("CH_CONNECT_TIMEOUT", 120),
+        "send_receive_timeout": _env_int("CH_SEND_RECEIVE_TIMEOUT", 600),
     }
+    logger.info(
+        f"CH timeouts: connect={ch_cfg_dict['connect_timeout']}s, "
+        f"send_receive={ch_cfg_dict['send_receive_timeout']}s"
+    )
 
     total_rows = 0
     completed = 0
