@@ -82,22 +82,25 @@ def _shard_seed(base_seed: int, year: int, month: int, shard_idx: int) -> int:
 def _align_for_clickhouse(table: pa.Table) -> pa.Table:
     """Cast columns so the Arrow table matches the vacinas.events schema.
 
-    Synthetic generator output differs in two places vs the CH DDL:
-      - codigo_dose_vacina:    int8  -> String
-      - numero_idade_paciente: int32 -> UInt16
-    The all-NULL nullable-string columns are emitted as pa.null() type and
-    must be re-typed to string for CH's Nullable(String) target.
+    Generator output diverges from the dashboard schema in three places:
+      - codigo_dose_vacina:    int8  -> UInt8 (was String previously; the
+                                       dashboard's MV does `= 1` comparisons
+                                       that need a numeric type to match)
+      - numero_idade_paciente: int32 -> UInt8 (ages 0-127; UInt8 saves
+                                       bytes at billion-row scale)
+      - pa.null() columns:     -> Nullable(String) so CH's nullable string
+                                  targets accept them.
     LowCardinality(String) target columns are auto-cast from plain string by CH.
     """
     idx = table.schema.get_field_index("codigo_dose_vacina")
-    if idx >= 0 and table.schema.field(idx).type != pa.string():
+    if idx >= 0 and table.schema.field(idx).type != pa.uint8():
         table = table.set_column(idx, "codigo_dose_vacina",
-                                 pc.cast(table.column(idx), pa.string()))
+                                 pc.cast(table.column(idx), pa.uint8()))
 
     idx = table.schema.get_field_index("numero_idade_paciente")
-    if idx >= 0 and table.schema.field(idx).type != pa.uint16():
+    if idx >= 0 and table.schema.field(idx).type != pa.uint8():
         table = table.set_column(idx, "numero_idade_paciente",
-                                 pc.cast(table.column(idx), pa.uint16()))
+                                 pc.cast(table.column(idx), pa.uint8()))
 
     null_typed = [f.name for f in table.schema if pa.types.is_null(f.type)]
     for name in null_typed:
